@@ -1,10 +1,11 @@
 from ariadne import QueryType, MutationType, ObjectType, EnumType, ScalarType, gql, make_executable_schema
 from ariadne.asgi import GraphQL
 import uvicorn
-from enum import IntEnum
-from datetime import datetime
-import dateutil
-import inspect
+from enum import IntEnum, Enum
+
+#######################################
+# Notion classes
+#######################################
 
 class NotionType(IntEnum):
     GENDER = 0
@@ -19,24 +20,6 @@ class NotionUnit(IntEnum):
     WEEK = 2
     MONTH = 3
     YEAR = 4
-
-class AgeClass(IntEnum):
-    CHILD = 1
-    ADULT = 2
-
-class Gender(IntEnum):
-    MALE = 1
-    FEMALE = 2
-
-class BiologicalGender(IntEnum):
-    XX = 1
-    XY = 2
-
-class Person(IntEnum):
-    WOMAN = 1
-    MAN = 2
-    GIRL = 3
-    BOY = 4
 
 class NotionFrame:
     frames = dict()
@@ -78,7 +61,6 @@ class PerceptiveFrame:
         keys = [nf.name for nf in nfs]
         values = [nf for nf in nfs]
         self.notion_frames = {key: value for key, value in zip(keys, values)}
-        # self.notion_frames = [NotionFrame.get_notion_frame(nf_name) for nf_name in notion_frame_names]
         self.discriminator_code = discriminator_code
         self.discriminator = discriminator
         PerceptiveFrame.frames[name] = self
@@ -99,67 +81,8 @@ class PerceptiveFrameInstance:
         self.notion_values = {key: value for key, value in zip(keys, values)}
         PerceptiveFrameInstance.values[id] = self
 
-    def get_perceptive_frame_instance_value(id: str) -> object:
-        return NotionValue.values.get(id)
-
-
-# nf_legal_age = NotionFrame(
-#     name = "legal_age",
-#     type = NotionType.INTEGER,
-#     unit = NotionUnit.YEAR,
-#     converter_code = """lambda args: int((args['actual_date'] - args['birth_date']).days//365.24)""",
-#     converter = lambda args: int((args['actual_date'] - args['birth_date']).days//365.24),
-#     discriminator_code = """lambda age: AgeClass.CHILD if age < 18 else AgeClass.ADULT""",
-#     discriminator = lambda age: AgeClass.CHILD if age < 18 else AgeClass.ADULT
-# )
-
-# nf_legal_gender = NotionFrame(
-#     name = "legal_gender",
-#     type = NotionType.GENDER,
-#     unit = NotionUnit.NONE,
-#     converter_code = """lambda args: args['gender']""",
-#     converter = lambda args: args['gender'],
-#     discriminator_code = """lambda gender: gender""",
-#     discriminator = lambda gender: gender
-# )
-
-# nf_biological_gender = NotionFrame(
-#     name = "biological_gender",
-#     type = NotionType.GENDER,
-#     unit = NotionUnit.NONE,
-#     converter_code = """lambda arg: arg['dna'].name""",
-#     converter = lambda arg: arg['dna'].name,
-#     discriminator_code = """lambda arg: Gender.FEMALE.name if arg == BiologicalGender.XX.name else Gender.MALE.name""",
-#     discriminator = lambda arg: Gender.FEMALE.name if arg == BiologicalGender.XX.name else Gender.MALE.name
-# )
-
-# def legal_discr(gender, age):
-#     nf = NotionFrame.get_notion_frame("legal_age")
-#     age_class = nf.discriminator(age)
-#     if gender == Gender.FEMALE:
-#         if age_class == AgeClass.ADULT:
-#             return Person.WOMAN
-#         return Person.GIRL
-#     else:
-#         if age_class == AgeClass.ADULT:
-#             return Person.MAN
-#         return Person.BOY
-
-# legal_discr_function_string = """
-# def legal_discr(gender, age):
-#     nf = NotionFrame.get_notion_frame("legal_age")
-#     age_class = nf.discriminator(age)
-#     if gender == Gender.FEMALE:
-#         if age_class == AgeClass.ADULT:
-#             return Person.WOMAN
-#         return Person.GIRL
-#     else:
-#         if age_class == AgeClass.ADULT:
-#             return Person.MAN
-#         return Person.BOY
-# """
-# exec(legal_discr_function_string)
-
+    def get_perceptive_frame_instance(id: str) -> object:
+        return PerceptiveFrameInstance.values.get(id)
 
 
 #######################################
@@ -168,37 +91,38 @@ class PerceptiveFrameInstance:
 
 type_defs = gql(
     '''
-    scalar Datetime
-
-    input LegalAgeInput {
-        birthDate: Datetime!
-        actualDate: Datetime!
-    }
-
-    input LegalGenderInput {
-        gender: Gender!
-    }
-
     input Arg {
         key: String!
         value: String!
     }
     
     type Query {
+        "Get all notion frames"
         notionFrames: [NotionFrame!]!
+        "Get notion frame by name"
         notionFrame(name: String!): NotionFrame
+        "Get all notion values"
         notionValues: [NotionValue!]!
+        "Get notion value by id"
+        notionValue(id: ID!): NotionValue
+        "Get all perceptive frames"
         perceptiveFrames: [PerceptiveFrame!]!
-#        legalAge(birthDate: Datetime!, actualDate: Datetime!): NotionValue!
-#        legalGender(gender: Gender!): NotionValue!
-#        biologicalGender(dna: BiologicalGender!): NotionValue!
-#        legal(legalAge: LegalAgeInput!, legalGender: LegalGenderInput!): PerceptiveFrame!
+        "Get perceptive frame by name"
+        perceptiveFrame(name: String!): PerceptiveFrame
+        "Get all perceptive frame instances"
+        perceptiveFrameInstances: [PerceptiveFrameInstance!]!
+        "Get perceptive frame instances by id"
+        perceptiveFrameInstance(id: ID!): PerceptiveFrameInstance
     }
 
     type Mutation {
+        "Create notion frame"
         createNotionFrame(name: String!, type: NotionType, unit: NotionUnit, converter: String, discriminator: String): NotionFrame
+        "Create notion value"
         createNotionValue(id: ID!, frame: String!, args: [Arg!]!): NotionValue
+        "Create perceptive frame"
         createPerceptiveFrame(name: String!, notionFrameNames: [String!]!, discriminator: String): PerceptiveFrame
+        "Create perceptive frame instance"
         createPerceptiveFrameInstance(id: ID!, perceptiveFrameName: String!, notionValueIds: [ID!]!): PerceptiveFrameInstance
     }
     
@@ -254,28 +178,6 @@ type_defs = gql(
         MONTH
         YEAR
     }
-
-    enum AgeClass {
-        CHILD
-        ADULT
-    }
-
-    enum Gender {
-        MALE
-        FEMALE
-    }
-
-    enum BiologicalGender {
-        XX
-        XY
-    }
-
-    enum Person {
-        WOMAN
-        MAN
-        GIRL
-        BOY
-    }
     '''
 )
 
@@ -305,52 +207,6 @@ notion_unit = EnumType(
         "YEAR" : 4,
     }
 )
-age_class = EnumType(
-    "AgeClass",
-    {
-        "CHILD": 1,
-        "ADULT": 2,
-    }
-)
-gender = EnumType(
-    "Gender",
-    {
-        "MALE": 1,
-        "FEMALE": 2,
-    }
-)
-biological_gender = EnumType(
-    "BiologicalGender",
-    {
-        "XX": 1,
-        "XY": 2,
-    }
-)
-person = EnumType(
-    "Person",
-    {
-        "WOMAN": 1,
-        "MAN": 2,
-        "GIRL": 3,
-        "BOY":  4,
-    }
-)
-datetime_scalar = ScalarType("Datetime")
-
-@datetime_scalar.serializer
-def serialize_datetime(value):
-    return value.isoformat()
-
-@datetime_scalar.value_parser
-def parse_datetime_value(value):
-    # dateutil is provided by python-dateutil library
-    if value:
-        return dateutil.parser.parse(value)
-
-@datetime_scalar.literal_parser
-def parse_datetime_literal(ast):
-    value = str(ast.value)
-    return parse_datetime_value(value)  # reuse logic from parse_value
 
 #######################################
 # Queries
@@ -368,42 +224,26 @@ def resolve_notion_frame(*_, name: str) -> NotionFrame:
 def resolve_notion_values(*_) -> list[NotionValue]:
     return [nv for nv in NotionValue.values.values()]
 
+@query.field("notionValue")
+def resolve_notion_value(*_, id: str) -> NotionValue:
+    return NotionValue.get_notion_value(id)
+
 @query.field("perceptiveFrames")
 def resolve_perceptive_frames(*_) -> list[PerceptiveFrame]:
     return [pf for pf in PerceptiveFrame.frames.values()]
 
-# @query.field("legal")
-# def resolve_legal(*_, legalAge: dict, legalGender: dict):
-#     args = dict()
-#     args["birth_date"] = parse_datetime_value(legalAge['birthDate'])
-#     args["actual_date"] = parse_datetime_value(legalAge['actualDate'])
-#     return PerceptiveFrame(
-#         name = "legal", 
-#         notion_values = [resolve_legal_age(birthDate = legalAge['birthDate'], actualDate = legalAge['actualDate']),
-#                          resolve_legal_gender(gender = legalGender['gender'])],
-#                          discriminator = legal_discr)    
+@query.field("perceptiveFrame")
+def resolve_perceptive_frame(*_, name: str) -> PerceptiveFrame:
+    return PerceptiveFrame.get_perceptive_frame(name)
 
-# @query.field("legalAge")
-# def resolve_legal_age(*_, birthDate: str, actualDate: str):
-#     nf = NotionFrame.get_notion_frame("legal_age")
-#     args = dict()
-#     args["birth_date"] = parse_datetime_value(birthDate)
-#     args["actual_date"] = parse_datetime_value(actualDate)
-#     return NotionValue("id", nf, args)
-    
-# @query.field("legalGender")
-# def resolve_legal_gender(*_, gender: int):
-#     nf = NotionFrame.get_notion_frame("legal_gender")
-#     args = dict()
-#     args["gender"] = Gender(gender)
-#     return NotionValue("id", nf, args)
+@query.field("perceptiveFrameInstances")
+def resolve_perceptive_frame_instances(*_) -> list[PerceptiveFrameInstance]:
+    return [nv for nv in PerceptiveFrameInstance.values.values()]
 
-# @query.field("biologicalGender")
-# def resolve_biological_gender(*_, dna: int):
-#     nf = NotionFrame.get_notion_frame("biological_gender")
-#     args = dict()
-#     args["dna"] = BiologicalGender(dna)
-#     return NotionValue("id", nf, args)
+@query.field("perceptiveFrameInstance")
+def resolve_perceptive_frame_instance(*_, id: str) -> PerceptiveFrameInstance:
+    return PerceptiveFrameInstance.get_perceptive_frame_instance(id)
+
 
 @notion_frame.field("name")
 def resolve_notion_frame_name(obj: NotionFrame, *_) -> str:
@@ -420,17 +260,16 @@ def resolve_notion_frame_unit(obj: NotionFrame, *_) -> NotionUnit:
 @notion_frame.field("converter")
 def resolve_notion_frame_converter(obj: NotionFrame, *_) -> str:
     return obj.converter_code
-    # return obj.get_callable_as_string(obj.converter)
 
 @notion_frame.field("discriminator")
 def resolve_notion_frame_discriminator(obj: NotionFrame, *_) -> str:
     return obj.discriminator_code
-    # return obj.get_callable_as_string(obj.discriminator)
+
 
 @notion_value.field("classification")
 def resolve_notion_value_classification(obj: NotionValue, *_) -> str:
     classification = obj.classification
-    if isinstance(classification, IntEnum):
+    if isinstance(classification, Enum):
         return classification.name
     else:
         return obj.classification
@@ -443,6 +282,7 @@ def resolve_notion_value_classification(obj: NotionValue, *_) -> str:
     else:
         return obj.property
 
+
 @perceptive_frame.field("name")
 def resolve_perceptive_frame_name(obj: PerceptiveFrame, *_) -> str:
     return obj.name
@@ -454,6 +294,7 @@ def resolve_perceptive_frame_notion_frames(obj: PerceptiveFrame, *_) -> list[Not
 @perceptive_frame.field("discriminator")
 def resolve_perceptive_frame_discriminator(obj: PerceptiveFrame, *_) -> str:
     return obj.discriminator_code
+
 
 @perceptive_frame_instance.field("id")
 def resolve_perceptive_frame_instance_id(obj: PerceptiveFrameInstance, *_) -> str:
@@ -510,9 +351,9 @@ def resolve_mutation_create_perceptive_frame(*_, name: str, notionFrameNames: li
 def resolve_mutation_create_perceptive_frame_instance(*_, id: str, perceptiveFrameName: str, notionValueIds: list[str]) -> PerceptiveFrameInstance:
     return PerceptiveFrameInstance(id = id, perceptive_frame_name = perceptiveFrameName, notion_value_ids = notionValueIds)
 
+
 schema = make_executable_schema(
-    type_defs, query, mutation, perceptive_frame, perceptive_frame_instance, notion_frame, notion_type, notion_unit, 
-    notion_value, age_class, gender, biological_gender, person
+    type_defs, query, mutation, perceptive_frame, perceptive_frame_instance, notion_frame, notion_type, notion_unit, notion_value
 )
 
 app = GraphQL(schema, debug=True)
