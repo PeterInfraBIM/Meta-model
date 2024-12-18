@@ -3,3 +3,5 @@ meta-model.pdf
 setup.py
 __pycache__/notions_graphql.cpython-312.pyc
 .vscode/launch.json
+bridge_module.json
+Figure_1.png
