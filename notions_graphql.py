@@ -525,7 +525,7 @@ def resolve_create_config_mng_relation(*_, id: str = None, relationType: Configu
                     "notionFrameId":  "NF_Orientation",
                     "args": [{
                         "key": "orientation", "value": "DEPARTURE"}],
-                    "derivedFrome": [{
+                    "derivedFrom": [{
                         "notionFrameId":  "NF_Link", 
                         "args": [{
                             "key": "link", "value": f"{departureId}"}]
@@ -700,15 +700,24 @@ def converter_function(args):
 """
         )
     
-    pfis: list[PerceptiveFrameInstance] = []    
+    pfis: list[PerceptiveFrameInstance] = []
 
-    d0_nodes: list[str] = [
+    window_module = resolve_mutation_create_perceptive_frame_instance(
+        perceptiveFrameInstanceInput={
+            "id": f"fixed window({width}x{height})",
+            "perceptiveFrameId": "PF_Config_Mng_Node",
+            "notionValueInputs": []
+        }
+    )
+    pfis.append(window_module)
+
+    d0_slots: list[str] = [
         "Verbinding_LB",
         "Verbinding_RB",
         "Verbinding_RO",
         "Verbinding_LO"
         ]
-    for node in d0_nodes:
+    for node in d0_slots:
         pfis.append(resolve_mutation_create_perceptive_frame_instance(
             perceptiveFrameInstanceInput={
                 "id": f"{node}",
@@ -732,14 +741,20 @@ def converter_function(args):
                 }]
             }
         ))
+        pfis.append(resolve_create_config_mng_relation(       
+            id=f"{uuid.uuid4()}", 
+            relationType=ConfigurationManagementRelationClass.NODE_NODE_ENCLOSURE.name, 
+            departureId=f"{PerceptiveFrameInstance.get_perceptive_frame_instance(node).id}",
+            arrivalId=f"{window_module.id}"
+        ))
 
-    d1_nodes: list[str] = [
+    d1_slots: list[str] = [
         "Bovendorpel",
         "Stijl_R",
         "Onderdorpel",
         "Stijl_L"
     ]
-    for node in d1_nodes:
+    for node in d1_slots:
         pfis.append(resolve_mutation_create_perceptive_frame_instance(
             perceptiveFrameInstanceInput={
                 "id": f"{node}",
@@ -750,8 +765,8 @@ def converter_function(args):
                 }]
             }
         ))
-    d2_nodes: list[str] = ["Glas"]
-    for node in d2_nodes:
+    d2_slots: list[str] = ["Glas"]
+    for node in d2_slots:
         pfis.append(resolve_mutation_create_perceptive_frame_instance(
             perceptiveFrameInstanceInput={
                 "id": f"{node}",
@@ -766,7 +781,7 @@ def converter_function(args):
     for item in range(4):
         pfis.append(resolve_mutation_create_perceptive_frame_instance(
             perceptiveFrameInstanceInput={
-                "id": f"{d2_nodes[0]}_down{item}",
+                "id": f"{d2_slots[0]}_down{item}",
                 "perceptiveFrameId": "PF_Config_Mng_Node",
                 "notionValueInputs": [{
                     "notionFrameId": "NF_Shrink",
@@ -775,7 +790,7 @@ def converter_function(args):
             }))
         pfis.append(resolve_mutation_create_perceptive_frame_instance(
             perceptiveFrameInstanceInput={
-                "id": f"{d0_nodes[item]}_up0",
+                "id": f"{d0_slots[item]}_up0",
                 "perceptiveFrameId": "PF_Config_Mng_Node",
                 "notionValueInputs": [{
                     "notionFrameId": "NF_Cut",
@@ -784,7 +799,7 @@ def converter_function(args):
             }))
         pfis.append(resolve_mutation_create_perceptive_frame_instance(
             perceptiveFrameInstanceInput={
-                "id": f"{d0_nodes[item]}_up1",
+                "id": f"{d0_slots[item]}_up1",
                 "perceptiveFrameId": "PF_Config_Mng_Node",
                 "notionValueInputs": [{
                     "notionFrameId": "NF_Cut",
@@ -792,11 +807,11 @@ def converter_function(args):
                 }]
             }))
 
-    for node in d0_nodes:
+    for node in d0_slots:
         pfis.extend(resolve_create_node(id=node, upPortCount=2))
-    for node in d1_nodes:
+    for node in d1_slots:
         pfis.extend(resolve_create_node(id=node, downPortCount=2, upPortCount=1))
-    for node in d2_nodes:
+    for node in d2_slots:
         pfis.extend(resolve_create_node(id=node, downPortCount=4))
 
     for item in range(4):
@@ -804,20 +819,20 @@ def converter_function(args):
             id=f"{uuid.uuid4()}", 
             relationType=ConfigurationManagementRelationClass.NODE_NODE_CONNECTION.name, 
             departureId=f"Glas_down{item}", 
-            arrivalId=f"{d1_nodes[item]}_up0"))
+            arrivalId=f"{d1_slots[item]}_up0"))
     for item in range(4):
         pfis.append(resolve_create_config_mng_relation(
             id=f"{uuid.uuid4()}", 
             relationType=ConfigurationManagementRelationClass.NODE_NODE_CONNECTION.name, 
-            departureId=f"{d1_nodes[item]}_down0",
-            arrivalId=f"{d0_nodes[item]}_up1"))
+            departureId=f"{d1_slots[item]}_down0",
+            arrivalId=f"{d0_slots[item]}_up1"))
         pfis.append(resolve_create_config_mng_relation(
             id=f"{uuid.uuid4()}", 
             relationType=ConfigurationManagementRelationClass.NODE_NODE_CONNECTION.name, 
-            departureId=f"{d1_nodes[item]}_down1",
-            arrivalId=f"{d0_nodes[(item+1)%4]}_up0"))
+            departureId=f"{d1_slots[item]}_down1",
+            arrivalId=f"{d0_slots[(item+1)%4]}_up0"))
         
-    for node in d1_nodes:
+    for node in d1_slots:
         loc0 = []
         loc1 = []
         pf_node = PerceptiveFrameInstance.get_perceptive_frame_instance(node)
